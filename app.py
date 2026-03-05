@@ -158,7 +158,7 @@ else:
                         )
                     },
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     key=f"editor_{idx}",
                 )
 
