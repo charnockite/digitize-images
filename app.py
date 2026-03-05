@@ -77,12 +77,16 @@ if uploaded_file is None:
     st.info("Upload a PDF in the sidebar to get started.")
 else:
     with st.spinner("Extracting tables from PDF…"):
-        tables = extract_tables_from_pdf(uploaded_file)
+        tables, method = extract_tables_from_pdf(uploaded_file)
+
+    if method == "ocr":
+        st.info("ℹ️ No selectable text found — tables extracted via OCR.")
 
     if not tables:
         st.warning(
             "No tables were detected in this PDF. "
-            "Make sure the file contains structured table data."
+            "Make sure the file contains structured table data, "
+            "or that the text is legible enough for OCR."
         )
     else:
         st.success(f"Found **{len(tables)}** table(s). Edit selections below, then download.")
