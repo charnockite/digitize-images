@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from table_extractor import _dedup_header, extract_tables_from_pdf
+from conftest import requires_ocr_tools
 
 EXAMPLES_DIR = pathlib.Path(__file__).parent.parent / "examples"
 FLAT_PDF = EXAMPLES_DIR / "test_selectable.pdf"
@@ -96,6 +97,7 @@ def test_flat_pdf_page_numbers():
 # ---------------------------------------------------------------------------
 
 
+@requires_ocr_tools
 def test_non_flat_pdf_returns_tables_via_ocr():
     """An image-only PDF falls back to OCR and returns at least one table."""
     tables, method = extract_tables_from_pdf(NON_FLAT_PDF)
@@ -103,6 +105,7 @@ def test_non_flat_pdf_returns_tables_via_ocr():
     assert len(tables) > 0
 
 
+@requires_ocr_tools
 def test_non_flat_pdf_tuple_structure():
     """OCR-extracted tables follow the same (page_number, table_index, DataFrame) structure."""
     tables, _ = extract_tables_from_pdf(NON_FLAT_PDF)
@@ -112,6 +115,7 @@ def test_non_flat_pdf_tuple_structure():
         assert isinstance(df, pd.DataFrame)
 
 
+@requires_ocr_tools
 def test_non_flat_pdf_dataframe_has_rows_and_columns():
     """Each OCR-extracted DataFrame has at least one row and one column."""
     tables, _ = extract_tables_from_pdf(NON_FLAT_PDF)
