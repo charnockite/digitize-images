@@ -9,6 +9,8 @@ HORNFELS_URL = "https://hornfelsconsulting.com"
 MIN_TABLE_ROWS = 2
 # Maximum number of column-checkboxes to display per row in the UI.
 MAX_COLUMNS_PER_ROW = 6
+# Only the first N pages of a PDF are processed to avoid Streamlit hanging on large files.
+MAX_PDF_PAGES = 10
 
 st.markdown(
     """
@@ -76,11 +78,20 @@ def _dedup_header(header: list[str]) -> list[str]:
     return result
 
 
-def extract_tables_from_pdf(file) -> list[tuple[int, int, pd.DataFrame]]:
-    """Return a list of (page_number, table_index, DataFrame) for every table found."""
+def extract_tables_from_pdf(file) -> tuple[list[tuple[int, int, pd.DataFrame]], bool]:
+    """Return extracted tables and a flag indicating whether the PDF was truncated.
+
+    Only the first MAX_PDF_PAGES pages are processed to prevent Streamlit from
+    hanging on large files.  The returned bool is True when the PDF contained
+    more pages than the limit.
+    """
     tables = []
+    truncated = False
     with pdfplumber.open(file) as pdf:
-        for page_num, page in enumerate(pdf.pages, start=1):
+        if len(pdf.pages) > MAX_PDF_PAGES:
+            truncated = True
+        pages_to_process = pdf.pages[:MAX_PDF_PAGES]
+        for page_num, page in enumerate(pages_to_process, start=1):
             page_tables = page.extract_tables()
             for table_idx, raw_table in enumerate(page_tables, start=1):
                 if not raw_table or len(raw_table) < MIN_TABLE_ROWS:
@@ -94,7 +105,7 @@ def extract_tables_from_pdf(file) -> list[tuple[int, int, pd.DataFrame]]:
                 ]
                 df = pd.DataFrame(rows, columns=header)
                 tables.append((page_num, table_idx, df))
-    return tables
+    return tables, truncated
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -114,7 +125,13 @@ if uploaded_file is None:
     st.info("Upload a PDF in the sidebar to get started.")
 else:
     with st.spinner("Extracting tables from PDF…"):
-        tables = extract_tables_from_pdf(uploaded_file)
+        tables, truncated = extract_tables_from_pdf(uploaded_file)
+
+    if truncated:
+        st.warning(
+            f"This PDF has more than {MAX_PDF_PAGES} pages. "
+            f"Only the first {MAX_PDF_PAGES} pages were processed to keep the app responsive."
+        )
 
     if not tables:
         st.warning(
