@@ -1,5 +1,4 @@
 import io
-import statistics
 
 import pandas as pd
 import pdf2image
@@ -12,12 +11,6 @@ MIN_TABLE_ROWS = 2
 
 # DPI used when rasterising each PDF page for OCR.
 _OCR_DPI = 200
-# Words whose y-center is within this many pixels are considered the same row.
-_ROW_TOLERANCE = 8
-# Columns whose x-center is within this many pixels are considered the same column.
-_COL_TOLERANCE = 20
-# Minimum confidence score (0-100) for a word to be included.
-_MIN_CONFIDENCE = 30
 
 
 def _dedup_header(header: list[str]) -> list[str]:
@@ -34,63 +27,31 @@ def _dedup_header(header: list[str]) -> list[str]:
     return result
 
 
-def _cluster_centers(values: list[int], tolerance: int) -> list[int]:
-    """Merge close values into cluster centers (sorted ascending)."""
-    sorted_vals = sorted(set(values))
-    clusters: list[list[int]] = []
-    for v in sorted_vals:
-        if clusters and v - statistics.mean(clusters[-1]) <= tolerance:
-            clusters[-1].append(v)
-        else:
-            clusters.append([v])
-    return [round(statistics.mean(c)) for c in clusters]
-
-
 def _ocr_page_to_dataframe(image: Image.Image) -> pd.DataFrame | None:
-    """Run Tesseract on one page image and reconstruct a table from word positions."""
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DATAFRAME)
+    """Run Tesseract on one page image and return the text as a DataFrame.
 
-    # Keep only confident, non-empty words.
-    data = data[(data["conf"] >= _MIN_CONFIDENCE) & (data["text"].str.strip() != "")]
-    if data.empty:
+    Each non-empty line of OCR output becomes a row, with whitespace-separated
+    tokens as columns.  The first row is used as the column header.  Rows with
+    fewer tokens than the widest row are padded with empty strings.
+
+    Note: whitespace splitting means multi-word cell values are split into
+    separate columns.  This is an intentional simplification — the goal is to
+    load the text rather than to reconstruct a precise table layout.
+    """
+    text = pytesseract.image_to_string(image)
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < MIN_TABLE_ROWS:
         return None
 
-    # Compute the y-center and x-center for each word.
-    data = data.copy()
-    data["y_center"] = data["top"] + data["height"] // 2
-    data["x_center"] = data["left"] + data["width"] // 2
+    rows = [line.split() for line in lines]
 
-    row_centers = _cluster_centers(data["y_center"].tolist(), _ROW_TOLERANCE)
-    col_centers = _cluster_centers(data["x_center"].tolist(), _COL_TOLERANCE)
+    # Pad every row to the same width.
+    max_cols = max(len(row) for row in rows)
+    rows = [row + [""] * (max_cols - len(row)) for row in rows]
 
-    if not row_centers or not col_centers:
-        return None
-
-    # Assign each word to a (row_idx, col_idx) grid cell.
-    def nearest_index(value: int, centers: list[int]) -> int:
-        return min(range(len(centers)), key=lambda i: abs(centers[i] - value))
-
-    data["row_idx"] = data["y_center"].apply(lambda v: nearest_index(v, row_centers))
-    data["col_idx"] = data["x_center"].apply(lambda v: nearest_index(v, col_centers))
-
-    # Concatenate words in the same cell (preserving reading order within cell).
-    cell_data: dict[tuple[int, int], list[str]] = {}
-    for _, word_row in data.sort_values(["row_idx", "col_idx", "left"]).iterrows():
-        key = (int(word_row["row_idx"]), int(word_row["col_idx"]))
-        cell_data.setdefault(key, []).append(str(word_row["text"]))
-
-    n_rows = len(row_centers)
-    n_cols = len(col_centers)
-    grid = [
-        [" ".join(cell_data.get((r, c), [])) for c in range(n_cols)]
-        for r in range(n_rows)
-    ]
-
-    if len(grid) < MIN_TABLE_ROWS:
-        return None
-
-    header = _dedup_header(grid[0])
-    df = pd.DataFrame(grid[1:], columns=header)
+    header = _dedup_header(rows[0])
+    df = pd.DataFrame(rows[1:], columns=header)
     return df
 
 
