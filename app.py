@@ -37,6 +37,11 @@ st.markdown(
         margin: 0.25rem 0 1.25rem 0;
     }
 
+    /* File uploader — white box needs dark text for contrast */
+    [data-testid="stFileUploader"] * {
+        color: #1B3C33 !important;
+    }
+
     /* Footer / branding link */
     .hornfels-link a {
         color: #C68D40;
