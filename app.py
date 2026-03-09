@@ -47,6 +47,16 @@ st.markdown(
         color: #1B3C33 !important;
     }
 
+    /* Regex text input in sidebar should use the same dark green */
+    [data-testid="stTextInput"] input {
+        color: #1B3C33 !important;
+        -webkit-text-fill-color: #1B3C33 !important;
+    }
+    [data-testid="stTextInput"] input::placeholder {
+        color: #1B3C33 !important;
+        opacity: 0.75;
+    }
+
     /* Footer / branding link */
     .hornfels-link a {
         color: #C68D40;
@@ -92,6 +102,10 @@ with st.sidebar:
                 key="regex_pattern_global",
                 placeholder=r"e.g. ^\d{4}$ or .*total.*",
                 label_visibility="collapsed",
+            )
+            st.caption(
+                "Simple regex only for safety: no groups `()`/alternation `|`/backrefs, "
+                "max pattern length 100, max repeat 1000."
             )
         with link_col:
             st.markdown("💡 [regex101](https://regex101.com/)")
@@ -200,7 +214,7 @@ def _process_file_regex(
 
     if regex_error is not None:
         st.error(
-            f"⚠️ Invalid regular expression: {regex_error}  "
+            f"⚠️ Invalid or unsafe regular expression: {regex_error}  "
             "— visit [regex101.com](https://regex101.com/) for help."
         )
         return []

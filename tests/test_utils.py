@@ -117,6 +117,24 @@ def test_regex_matches_valid_pattern_returns_no_error(sample_df):
     assert err is None
 
 
+@pytest.mark.parametrize(
+    "pattern, expected_msg",
+    [
+        ("(a+)+$", "Grouping and alternation are not allowed."),
+        ("foo|bar", "Grouping and alternation are not allowed."),
+        (r"\1abc", "Backreferences are not allowed."),
+        ("a{1,5001}", "Repetition quantifier too large (max 1000)."),
+    ],
+)
+def test_regex_matches_rejects_unsafe_patterns(sample_df, pattern, expected_msg):
+    """Unsafe/high-complexity patterns are rejected before matching."""
+    result, err = extract_regex_matches(sample_df, TABLE_ID, pattern)
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["tableID", "match"]
+    assert len(result) == 0
+    assert err == expected_msg
+
+
 # ---------------------------------------------------------------------------
 # extract_regex_matches – edge cases
 # ---------------------------------------------------------------------------
