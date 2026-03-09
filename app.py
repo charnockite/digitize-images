@@ -1,4 +1,5 @@
 import io
+import pathlib
 
 import pandas as pd
 import streamlit as st
@@ -70,16 +71,43 @@ st.markdown('<hr class="hornfels-divider">', unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("Upload PDF")
-    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf", label_visibility="collapsed")
-    st.markdown("---")
-    st.markdown(
-        "**How to use**\n"
-        "1. Upload a PDF with tables.\n"
-        "2. Uncheck columns or rows you don't need.\n"
-        "3. Download a single table as CSV, or use\n"
-        "   *Download All Selected Tables* to combine them."
+    mode = st.radio(
+        "Mode",
+        options=["Single file", "Bulk processing"],
+        horizontal=True,
     )
+    st.markdown("---")
+
+    if mode == "Single file":
+        st.header("Upload PDF")
+        uploaded_file = st.file_uploader(
+            "Choose a PDF file", type="pdf", label_visibility="collapsed"
+        )
+        st.markdown("---")
+        st.markdown(
+            "**How to use**\n"
+            "1. Upload a PDF with tables.\n"
+            "2. Uncheck columns or rows you don't need.\n"
+            "3. Download a single table as CSV, or use\n"
+            "   *Download All Selected Tables* to combine them."
+        )
+    else:
+        uploaded_file = None
+        st.header("Upload PDFs")
+        uploaded_files = st.file_uploader(
+            "Choose PDF files",
+            type="pdf",
+            accept_multiple_files=True,
+            label_visibility="collapsed",
+        )
+        st.markdown("---")
+        st.markdown(
+            "**How to use (Bulk)**\n"
+            "1. Upload one or more PDFs with tables.\n"
+            "2. Each file is processed automatically.\n"
+            "3. Download per-file CSVs, or use\n"
+            "   *Download All Tables* to combine everything."
+        )
 
 # ── Cached helpers ────────────────────────────────────────────────────────────
 
@@ -95,148 +123,210 @@ def _cached_raw_ocr(file_bytes: bytes) -> pd.DataFrame | None:
 
 
 # ── Main area ─────────────────────────────────────────────────────────────────
-if uploaded_file is None:
-    st.info("Upload a PDF in the sidebar to get started.")
-else:
-    file_bytes = uploaded_file.getvalue()
-
-    with st.spinner("Extracting tables from PDF…"):
-        tables, method = _cached_extract(file_bytes)
-
-    if method == "ocr":
-        st.info("ℹ️ No selectable text found — tables extracted via OCR.")
-        with st.spinner("Extracting tables using OCR…"):
-            raw_df = _cached_raw_ocr(file_bytes)
-        if raw_df is not None:
-            raw_csv = raw_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="⬇ Get Raw OCR Output",
-                data=raw_csv,
-                file_name="raw_ocr_output.csv",
-                mime="text/csv",
-                key="download_raw_ocr",
-            )
-
-    if not tables:
-        st.warning(
-            "No tables were detected in this PDF. "
-            "Make sure the file contains structured table data, "
-            "or that the text is legible enough for OCR."
-        )
+if mode == "Single file":
+    if uploaded_file is None:
+        st.info("Upload a PDF in the sidebar to get started.")
     else:
-        st.success(f"Found **{len(tables)}** table(s). Edit selections below, then download.")
+        file_bytes = uploaded_file.getvalue()
 
-        # Collect (tableID, final_df) pairs from selected tables for combined download.
-        combined_parts: list[pd.DataFrame] = []
+        with st.spinner("Extracting tables from PDF…"):
+            tables, method = _cached_extract(file_bytes)
 
-        for idx, (page_num, table_idx, df) in enumerate(tables):
-            st.subheader(f"Table {idx + 1}  ·  Page {page_num}")
+        if method == "ocr":
+            st.info("ℹ️ No selectable text found — tables extracted via OCR.")
+            with st.spinner("Extracting tables using OCR…"):
+                raw_df = _cached_raw_ocr(file_bytes)
+            if raw_df is not None:
+                raw_csv = raw_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇ Get Raw OCR Output",
+                    data=raw_csv,
+                    file_name="raw_ocr_output.csv",
+                    mime="text/csv",
+                    key="download_raw_ocr",
+                )
 
-            # ── Table-level inclusion toggle ──────────────────────────────
-            table_included = st.checkbox(
-                "Include in combined download",
-                value=True,
-                key=f"table_included_{idx}",
+        if not tables:
+            st.warning(
+                "No tables were detected in this PDF. "
+                "Make sure the file contains structured table data, "
+                "or that the text is legible enough for OCR."
             )
+        else:
+            st.success(f"Found **{len(tables)}** table(s). Edit selections below, then download.")
 
-            # ── Column selection ──────────────────────────────────────────
-            st.markdown("**Columns to include:**")
-            all_cols = df.columns.tolist()
+            # Collect (tableID, final_df) pairs from selected tables for combined download.
+            combined_parts: list[pd.DataFrame] = []
 
-            # "Check All / Check None" buttons for columns
-            col_btn1, col_btn2, _ = st.columns([1, 1, 4])
-            with col_btn1:
-                if st.button("Check All", key=f"check_all_cols_{idx}"):
-                    for i in range(len(all_cols)):
-                        st.session_state[f"col_{idx}_{i}"] = True
-            with col_btn2:
-                if st.button("Check None", key=f"check_none_cols_{idx}"):
-                    for i in range(len(all_cols)):
-                        st.session_state[f"col_{idx}_{i}"] = False
+            for idx, (page_num, table_idx, df) in enumerate(tables):
+                st.subheader(f"Table {idx + 1}  ·  Page {page_num}")
 
-            checkbox_columns = st.columns(min(len(all_cols), MAX_COLUMNS_PER_ROW))
-            col_selection: dict[str, bool] = {}
-            for i, col in enumerate(all_cols):
-                with checkbox_columns[i % MAX_COLUMNS_PER_ROW]:
-                    col_selection[col] = st.checkbox(
-                        col if col else f"Col {i + 1}",
-                        value=True,
-                        key=f"col_{idx}_{i}",
+                # ── Table-level inclusion toggle ──────────────────────────────
+                table_included = st.checkbox(
+                    "Include in combined download",
+                    value=True,
+                    key=f"table_included_{idx}",
+                )
+
+                # ── Column selection ──────────────────────────────────────────
+                st.markdown("**Columns to include:**")
+                all_cols = df.columns.tolist()
+
+                # "Check All / Check None" buttons for columns
+                col_btn1, col_btn2, _ = st.columns([1, 1, 4])
+                with col_btn1:
+                    if st.button("Check All", key=f"check_all_cols_{idx}"):
+                        for i in range(len(all_cols)):
+                            st.session_state[f"col_{idx}_{i}"] = True
+                with col_btn2:
+                    if st.button("Check None", key=f"check_none_cols_{idx}"):
+                        for i in range(len(all_cols)):
+                            st.session_state[f"col_{idx}_{i}"] = False
+
+                checkbox_columns = st.columns(min(len(all_cols), MAX_COLUMNS_PER_ROW))
+                col_selection: dict[str, bool] = {}
+                for i, col in enumerate(all_cols):
+                    with checkbox_columns[i % MAX_COLUMNS_PER_ROW]:
+                        col_selection[col] = st.checkbox(
+                            col if col else f"Col {i + 1}",
+                            value=True,
+                            key=f"col_{idx}_{i}",
+                        )
+
+                selected_cols = [c for c, v in col_selection.items() if v]
+
+                final_df: pd.DataFrame | None = None
+
+                if not selected_cols:
+                    st.info("Select at least one column to see a preview.")
+                else:
+                    # ── Row selection via editable table ─────────────────────
+                    df_edit = df[selected_cols].copy()
+
+                    # Determine the default Include value based on any row override.
+                    _rows_key = f"rows_include_{idx}"
+                    include_default: bool = st.session_state.get(_rows_key, True)
+                    df_edit.insert(0, "Include", include_default)
+
+                    # "Check All / Check None" buttons for rows
+                    row_btn1, row_btn2, _ = st.columns([1, 1, 4])
+                    with row_btn1:
+                        if st.button("Check All", key=f"check_all_rows_{idx}"):
+                            st.session_state[_rows_key] = True
+                            st.session_state.pop(f"editor_{idx}", None)
+                            st.rerun()
+                    with row_btn2:
+                        if st.button("Check None", key=f"check_none_rows_{idx}"):
+                            st.session_state[_rows_key] = False
+                            st.session_state.pop(f"editor_{idx}", None)
+                            st.rerun()
+
+                    st.markdown("**Rows to include** (uncheck to exclude):")
+                    edited_df = st.data_editor(
+                        df_edit,
+                        column_config={
+                            "Include": st.column_config.CheckboxColumn(
+                                "Include", default=True, width="small"
+                            )
+                        },
+                        hide_index=True,
+                        width="stretch",
+                        key=f"editor_{idx}",
                     )
 
-            selected_cols = [c for c, v in col_selection.items() if v]
+                    final_df = edited_df[edited_df["Include"]].drop(columns=["Include"])
 
-            final_df: pd.DataFrame | None = None
+                    st.caption(f"{len(final_df)} of {len(df)} rows selected.")
 
-            if not selected_cols:
-                st.info("Select at least one column to see a preview.")
-            else:
-                # ── Row selection via editable table ─────────────────────
-                df_edit = df[selected_cols].copy()
+                    # ── Per-table download ────────────────────────────────────
+                    csv_bytes = final_df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        label=f"⬇ Download Table {idx + 1} as CSV",
+                        data=csv_bytes,
+                        file_name=f"table_{idx + 1}_page_{page_num}.csv",
+                        mime="text/csv",
+                        key=f"download_{idx}",
+                    )
 
-                # Determine the default Include value based on any row override.
-                _rows_key = f"rows_include_{idx}"
-                include_default: bool = st.session_state.get(_rows_key, True)
-                df_edit.insert(0, "Include", include_default)
+                # Accumulate for combined download when the table is selected.
+                if table_included and final_df is not None and len(final_df) > 0:
+                    stamped = final_df.copy()
+                    stamped.insert(0, "tableID", f"table_{idx + 1}_page_{page_num}")
+                    combined_parts.append(stamped)
 
-                # "Check All / Check None" buttons for rows
-                row_btn1, row_btn2, _ = st.columns([1, 1, 4])
-                with row_btn1:
-                    if st.button("Check All", key=f"check_all_rows_{idx}"):
-                        st.session_state[_rows_key] = True
-                        st.session_state.pop(f"editor_{idx}", None)
-                        st.rerun()
-                with row_btn2:
-                    if st.button("Check None", key=f"check_none_rows_{idx}"):
-                        st.session_state[_rows_key] = False
-                        st.session_state.pop(f"editor_{idx}", None)
-                        st.rerun()
+                st.markdown("---")
 
-                st.markdown("**Rows to include** (uncheck to exclude):")
-                edited_df = st.data_editor(
-                    df_edit,
-                    column_config={
-                        "Include": st.column_config.CheckboxColumn(
-                            "Include", default=True, width="small"
-                        )
-                    },
-                    hide_index=True,
-                    width="stretch",
-                    key=f"editor_{idx}",
-                )
-
-                final_df = edited_df[edited_df["Include"]].drop(columns=["Include"])
-
-                st.caption(f"{len(final_df)} of {len(df)} rows selected.")
-
-                # ── Per-table download ────────────────────────────────────
-                csv_bytes = final_df.to_csv(index=False).encode("utf-8")
+            # ── Combined download ─────────────────────────────────────────────
+            if combined_parts:
+                combined_df = pd.concat(combined_parts, ignore_index=True)
+                combined_csv = combined_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
-                    label=f"⬇ Download Table {idx + 1} as CSV",
-                    data=csv_bytes,
-                    file_name=f"table_{idx + 1}_page_{page_num}.csv",
+                    label="⬇ Download All Selected Tables as CSV",
+                    data=combined_csv,
+                    file_name="all_tables.csv",
                     mime="text/csv",
-                    key=f"download_{idx}",
+                    key="download_all",
                 )
 
-            # Accumulate for combined download when the table is selected.
-            if table_included and final_df is not None and len(final_df) > 0:
-                stamped = final_df.copy()
-                stamped.insert(0, "tableID", f"table_{idx + 1}_page_{page_num}")
-                combined_parts.append(stamped)
+else:  # Bulk processing
+    if not uploaded_files:
+        st.info("Upload one or more PDFs in the sidebar to get started.")
+    else:
+        all_bulk_parts: list[pd.DataFrame] = []
+
+        for file_idx, bulk_file in enumerate(uploaded_files):
+            file_bytes = bulk_file.getvalue()
+            file_name = bulk_file.name
+
+            st.subheader(f"📄 {file_name}")
+
+            with st.spinner(f"Extracting tables from {file_name}…"):
+                tables, method = _cached_extract(file_bytes)
+
+            if method == "ocr":
+                st.info("ℹ️ No selectable text found — tables extracted via OCR.")
+
+            if not tables:
+                st.warning(
+                    "No tables were detected in this PDF. "
+                    "Make sure the file contains structured table data, "
+                    "or that the text is legible enough for OCR."
+                )
+            else:
+                st.success(f"Found **{len(tables)}** table(s) using {method}.")
+
+                file_parts: list[pd.DataFrame] = []
+                for idx, (page_num, table_idx, df) in enumerate(tables):
+                    stamped = df.copy()
+                    table_id = f"{file_name}_table_{idx + 1}_page_{page_num}"
+                    stamped.insert(0, "tableID", table_id)
+                    file_parts.append(stamped)
+
+                if file_parts:
+                    file_df = pd.concat(file_parts, ignore_index=True)
+                    file_csv = file_df.to_csv(index=False).encode("utf-8")
+                    safe_stem = pathlib.Path(file_name).stem
+                    st.download_button(
+                        label=f"⬇ Download tables from {file_name}",
+                        data=file_csv,
+                        file_name=f"{safe_stem}_tables.csv",
+                        mime="text/csv",
+                        key=f"download_bulk_{file_idx}",
+                    )
+                    all_bulk_parts.extend(file_parts)
 
             st.markdown("---")
 
-        # ── Combined download ─────────────────────────────────────────────
-        if combined_parts:
-            combined_df = pd.concat(combined_parts, ignore_index=True)
+        # ── Combined download for all files ───────────────────────────────────
+        if all_bulk_parts:
+            combined_df = pd.concat(all_bulk_parts, ignore_index=True)
             combined_csv = combined_df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                label="⬇ Download All Selected Tables as CSV",
+                label="⬇ Download All Tables as CSV",
                 data=combined_csv,
-                file_name="all_tables.csv",
+                file_name="all_tables_bulk.csv",
                 mime="text/csv",
-                key="download_all",
+                key="download_all_bulk",
             )
 
 st.markdown(
