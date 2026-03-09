@@ -97,6 +97,45 @@ def _extract_tables_ocr(file_bytes: bytes) -> list[tuple[int, int, pd.DataFrame]
     return tables
 
 
+def get_raw_ocr_data(file) -> pd.DataFrame | None:
+    """Run ``pytesseract.image_to_data`` on every page and return a combined DataFrame.
+
+    Each page's output is augmented with a ``page`` column so rows can be
+    traced back to their source page.  Returns ``None`` if the PDF cannot be
+    rasterised (e.g. poppler/Tesseract not installed).
+    """
+    if hasattr(file, "read"):
+        file_bytes = file.read()
+    else:
+        with open(file, "rb") as fh:
+            file_bytes = fh.read()
+
+    try:
+        images = pdf2image.convert_from_bytes(file_bytes, dpi=_OCR_DPI)
+    except (
+        pdf2image.exceptions.PDFInfoNotInstalledError,
+        pdf2image.exceptions.PopplerNotInstalledError,
+        pdf2image.exceptions.PDFPageCountError,
+        pdf2image.exceptions.PDFSyntaxError,
+        pdf2image.exceptions.PDFPopplerTimeoutError,
+    ):
+        return None
+
+    dfs: list[pd.DataFrame] = []
+    for page_num, image in enumerate(images, start=1):
+        try:
+            df = pytesseract.image_to_data(image, output_type=pytesseract.Output.DATAFRAME)
+        except pytesseract.TesseractError:
+            continue
+        df.insert(0, "page", page_num)
+        dfs.append(df)
+
+    if not dfs:
+        return None
+
+    return pd.concat(dfs, ignore_index=True)
+
+
 def extract_tables_from_pdf(
     file,
 ) -> tuple[list[tuple[int, int, pd.DataFrame]], str]:

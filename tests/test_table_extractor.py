@@ -5,7 +5,7 @@ import pathlib
 import pandas as pd
 import pytest
 
-from table_extractor import _dedup_header, extract_tables_from_pdf
+from table_extractor import _dedup_header, extract_tables_from_pdf, get_raw_ocr_data
 from conftest import requires_ocr_tools
 
 EXAMPLES_DIR = pathlib.Path(__file__).parent.parent / "examples"
@@ -122,3 +122,50 @@ def test_non_flat_pdf_dataframe_has_rows_and_columns():
     for _, _, df in tables:
         assert df.shape[0] >= 1
         assert df.shape[1] >= 1
+
+
+# ---------------------------------------------------------------------------
+# get_raw_ocr_data
+# ---------------------------------------------------------------------------
+
+
+@requires_ocr_tools
+def test_get_raw_ocr_data_returns_dataframe():
+    """get_raw_ocr_data returns a non-None DataFrame for an OCR PDF."""
+    result = get_raw_ocr_data(NON_FLAT_PDF)
+    assert result is not None
+    assert isinstance(result, pd.DataFrame)
+
+
+@requires_ocr_tools
+def test_get_raw_ocr_data_has_page_column():
+    """The returned DataFrame contains a 'page' column."""
+    result = get_raw_ocr_data(NON_FLAT_PDF)
+    assert result is not None
+    assert "page" in result.columns
+
+
+@requires_ocr_tools
+def test_get_raw_ocr_data_has_rows():
+    """The raw OCR DataFrame contains at least one row."""
+    result = get_raw_ocr_data(NON_FLAT_PDF)
+    assert result is not None
+    assert len(result) > 0
+
+
+@requires_ocr_tools
+def test_get_raw_ocr_data_page_numbers_are_positive():
+    """All page numbers in the raw OCR output are >= 1."""
+    result = get_raw_ocr_data(NON_FLAT_PDF)
+    assert result is not None
+    assert (result["page"] >= 1).all()
+
+
+@requires_ocr_tools
+def test_get_raw_ocr_data_contains_tesseract_columns():
+    """The DataFrame includes standard pytesseract.image_to_data output columns."""
+    result = get_raw_ocr_data(NON_FLAT_PDF)
+    assert result is not None
+    for col in ("level", "page_num", "word_num", "text"):
+        assert col in result.columns, f"Expected column '{col}' not found"
+
