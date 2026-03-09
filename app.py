@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from table_extractor import extract_tables_from_pdf, get_raw_ocr_data
+from utils import apply_regex_filter
 
 LOGO_PATH = "hornfels_250x250.png"
 HORNFELS_URL = "https://hornfelsconsulting.com"
@@ -77,7 +78,9 @@ with st.sidebar:
         "**How to use**\n"
         "1. Upload a PDF with tables.\n"
         "2. Uncheck columns or rows you don't need.\n"
-        "3. Download a single table as CSV, or use\n"
+        "3. Use *Filter rows by regular expression* to\n"
+        "   narrow rows by a pattern.\n"
+        "4. Download a single table as CSV, or use\n"
         "   *Download All Selected Tables* to combine them."
     )
 
@@ -171,25 +174,57 @@ else:
             if not selected_cols:
                 st.info("Select at least one column to see a preview.")
             else:
-                # ── Row selection via editable table ─────────────────────
+                # ── Regex row filter ──────────────────────────────────────
                 df_edit = df[selected_cols].copy()
 
+                use_regex = st.checkbox(
+                    "Filter rows by regular expression",
+                    key=f"use_regex_{idx}",
+                )
+                regex_pattern = ""
+                if use_regex:
+                    re_col, link_col = st.columns([4, 1])
+                    with re_col:
+                        regex_pattern = st.text_input(
+                            "Regular expression",
+                            key=f"regex_pattern_{idx}",
+                            placeholder=r"e.g. ^\d{4}$ or .*total.*",
+                            label_visibility="collapsed",
+                        )
+                    with link_col:
+                        st.markdown("💡 [regex101.com](https://regex101.com/)")
+                    if regex_pattern:
+                        df_edit, regex_error = apply_regex_filter(df_edit, regex_pattern)
+                        if regex_error is not None:
+                            st.error(
+                                f"⚠️ Invalid regular expression: {regex_error}  "
+                                "— visit [regex101.com](https://regex101.com/) for help."
+                            )
+                            df_edit = df[selected_cols].copy()
+                        elif df_edit.empty:
+                            st.warning("No rows match the regular expression.")
+
+                # ── Row selection via editable table ─────────────────────
                 # Determine the default Include value based on any row override.
                 _rows_key = f"rows_include_{idx}"
                 include_default: bool = st.session_state.get(_rows_key, True)
                 df_edit.insert(0, "Include", include_default)
+
+                # Include the active regex pattern in the editor key so the
+                # editor resets automatically when the filter changes.
+                _editor_key = f"editor_{idx}_{regex_pattern}"
 
                 # "Check All / Check None" buttons for rows
                 row_btn1, row_btn2, _ = st.columns([1, 1, 4])
                 with row_btn1:
                     if st.button("Check All", key=f"check_all_rows_{idx}"):
                         st.session_state[_rows_key] = True
-                        st.session_state.pop(f"editor_{idx}", None)
+                        st.session_state.pop(_editor_key, None)
                         st.rerun()
                 with row_btn2:
                     if st.button("Check None", key=f"check_none_rows_{idx}"):
                         st.session_state[_rows_key] = False
-                        st.session_state.pop(f"editor_{idx}", None)
+                        st.session_state.pop(_editor_key, None)
                         st.rerun()
 
                 st.markdown("**Rows to include** (uncheck to exclude):")
@@ -202,7 +237,7 @@ else:
                     },
                     hide_index=True,
                     width="stretch",
-                    key=f"editor_{idx}",
+                    key=_editor_key,
                 )
 
                 final_df = edited_df[edited_df["Include"]].drop(columns=["Include"])
