@@ -71,6 +71,8 @@ st.markdown('<hr class="hornfels-divider">', unsafe_allow_html=True)
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
+# Initialise bulk file list so the main-area code can always reference it.
+uploaded_files: list = []
 with st.sidebar:
     mode = st.radio(
         "Mode",
@@ -210,11 +212,11 @@ def _process_file_regex(
     file_matches_df = pd.concat(file_parts, ignore_index=True)
     st.success(f"Found **{len(file_matches_df)}** match(es) across {len(tables)} table(s).")
     file_csv = file_matches_df.to_csv(index=False).encode("utf-8")
-    safe_stem = pathlib.Path(file_label).stem
+    file_stem = pathlib.Path(file_label).stem
     st.download_button(
         label=f"⬇ Download matches from {file_label}",
         data=file_csv,
-        file_name=f"{safe_stem}_matches.csv",
+        file_name=f"{file_stem}_matches.csv",
         mime="text/csv",
         key=download_key,
     )
@@ -463,11 +465,11 @@ else:  # Bulk processing
                     if file_parts:
                         file_df = pd.concat(file_parts, ignore_index=True)
                         file_csv = file_df.to_csv(index=False).encode("utf-8")
-                        safe_stem = pathlib.Path(file_name).stem
+                        file_stem = pathlib.Path(file_name).stem
                         st.download_button(
                             label=f"⬇ Download tables from {file_name}",
                             data=file_csv,
-                            file_name=f"{safe_stem}_tables.csv",
+                            file_name=f"{file_stem}_tables.csv",
                             mime="text/csv",
                             key=f"download_bulk_{file_idx}",
                         )
