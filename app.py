@@ -200,7 +200,6 @@ else:
                                 f"⚠️ Invalid regular expression: {regex_error}  "
                                 "— visit [regex101.com](https://regex101.com/) for help."
                             )
-                            df_edit = df[selected_cols].copy()
                         elif df_edit.empty:
                             st.warning("No rows match the regular expression.")
 
