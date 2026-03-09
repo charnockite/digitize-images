@@ -105,7 +105,8 @@ else:
 
     if method == "ocr":
         st.info("ℹ️ No selectable text found — tables extracted via OCR.")
-        raw_df = _cached_raw_ocr(file_bytes)
+        with st.spinner("Extracting tables using OCR…"):
+            raw_df = _cached_raw_ocr(file_bytes)
         if raw_df is not None:
             raw_csv = raw_df.to_csv(index=False).encode("utf-8")
             st.download_button(
@@ -243,4 +244,13 @@ st.markdown(
     f'<a href="{HORNFELS_URL}" target="_blank" rel="noopener noreferrer">Hornfels Consulting</a>'
     "</p>",
     unsafe_allow_html=True,
+)
+#add footer with disclaimer about OCR limitations and link to Hornfels website
+
+st.image("https://img.shields.io/badge/License-MIT-yellow.svg", width=64, link="https://opensource.org/licenses/MIT")
+st.markdown(
+    """
+    Use at your own risk and benefit. No warranty or liability is implied or expressly granted. Your data is not shared, stored, or usable in any way except by you.  Aim away from face.  Keep out of reach of children.  Never end a sentence with a preposition.
+    OCR-based extraction may have limitations in accuracy, especially with complex layouts or low-quality scans. Always review the extracted data for errors.
+    """,
 )
