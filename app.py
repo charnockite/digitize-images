@@ -29,6 +29,35 @@ st.markdown(
         color: #FFFFFF !important;
     }
 
+    /* Sidebar collapse/expand chevron should always stand out */
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="collapsedControl"] button,
+    button[title="Collapse sidebar"],
+    button[title="Expand sidebar"] {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button:hover,
+    [data-testid="collapsedControl"] button:hover,
+    button[title="Collapse sidebar"]:hover,
+    button[title="Expand sidebar"]:hover,
+    [data-testid="stSidebarCollapseButton"] button:focus-visible,
+    [data-testid="collapsedControl"] button:focus-visible,
+    button[title="Collapse sidebar"]:focus-visible,
+    button[title="Expand sidebar"]:focus-visible {
+        background-color: rgba(255, 255, 255, 0.14) !important;
+        border-radius: 0.4rem;
+        outline: 2px solid rgba(255, 255, 255, 0.35) !important;
+        outline-offset: 1px;
+    }
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="collapsedControl"] svg,
+    button[title="Collapse sidebar"] svg,
+    button[title="Expand sidebar"] svg {
+        fill: #FFFFFF !important;
+        stroke: #FFFFFF !important;
+        color: #FFFFFF !important;
+    }
+
     /* Main title */
     h1 {
         color: #1B3C33;
@@ -104,7 +133,7 @@ with st.sidebar:
                 label_visibility="collapsed",
             )
             st.caption(
-                "Simple regex only for safety: no groups `()`/alternation `|`/backrefs, "
+                "Simple regex only for safety: no groups ()/alternation |/backrefs, "
                 "max pattern length 100, max repeat 1000."
             )
         with link_col:
