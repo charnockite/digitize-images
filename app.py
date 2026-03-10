@@ -4,6 +4,7 @@ import pathlib
 import pandas as pd
 import streamlit as st
 
+from styles import apply_custom_css, render_divider, render_footer
 from table_extractor import extract_tables_from_pdf, get_raw_ocr_data
 from utils import extract_regex_matches
 
@@ -13,92 +14,7 @@ HORNFELS_URL = "https://hornfelsconsulting.com"
 # Maximum number of column-checkboxes to display per row in the UI.
 MAX_COLUMNS_PER_ROW = 6
 
-st.markdown(
-    """
-    <style>
-    /* Header / top bar */
-    [data-testid="stHeader"] {
-        background-color: #1B3C33;
-    }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #1B3C33;
-    }
-    [data-testid="stSidebar"] * {
-        color: #FFFFFF !important;
-    }
-
-    /* Sidebar collapse/expand chevron should always stand out */
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="collapsedControl"] button,
-    button[title="Collapse sidebar"],
-    button[title="Expand sidebar"] {
-        color: #FFFFFF !important;
-    }
-    [data-testid="stSidebarCollapseButton"] button:hover,
-    [data-testid="collapsedControl"] button:hover,
-    button[title="Collapse sidebar"]:hover,
-    button[title="Expand sidebar"]:hover,
-    [data-testid="stSidebarCollapseButton"] button:focus-visible,
-    [data-testid="collapsedControl"] button:focus-visible,
-    button[title="Collapse sidebar"]:focus-visible,
-    button[title="Expand sidebar"]:focus-visible {
-        background-color: rgba(255, 255, 255, 0.14) !important;
-        border-radius: 0.4rem;
-        outline: 2px solid rgba(255, 255, 255, 0.35) !important;
-        outline-offset: 1px;
-    }
-    [data-testid="stSidebarCollapseButton"] svg,
-    [data-testid="collapsedControl"] svg,
-    button[title="Collapse sidebar"] svg,
-    button[title="Expand sidebar"] svg {
-        fill: #FFFFFF !important;
-        stroke: #FFFFFF !important;
-        color: #FFFFFF !important;
-    }
-
-    /* Main title */
-    h1 {
-        color: #1B3C33;
-        font-weight: 700;
-    }
-
-    /* Divider line accent */
-    .hornfels-divider {
-        border: none;
-        border-top: 3px solid #C68D40;
-        margin: 0.25rem 0 1.25rem 0;
-    }
-
-    /* File uploader — white box needs dark text for contrast */
-    [data-testid="stFileUploader"] * {
-        color: #1B3C33 !important;
-    }
-
-    /* Regex text input in sidebar should use the same dark green */
-    [data-testid="stTextInput"] input {
-        color: #1B3C33 !important;
-        -webkit-text-fill-color: #1B3C33 !important;
-    }
-    [data-testid="stTextInput"] input::placeholder {
-        color: #1B3C33 !important;
-        opacity: 0.75;
-    }
-
-    /* Footer / branding link */
-    .hornfels-link a {
-        color: #C68D40;
-        font-weight: 600;
-        text-decoration: none;
-    }
-    .hornfels-link a:hover {
-        text-decoration: underline;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+apply_custom_css()
 
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
@@ -106,7 +22,7 @@ with col_logo:
 with col_title:
     st.title("Digitize Images")
 
-st.markdown('<hr class="hornfels-divider">', unsafe_allow_html=True)
+render_divider()
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -532,13 +448,8 @@ else:  # Bulk processing
                     key="download_all_bulk",
                 )
 
-st.markdown(
-    '<p class="hornfels-link">Powered by '
-    f'<a href="{HORNFELS_URL}" target="_blank" rel="noopener noreferrer">Hornfels Consulting</a>'
-    "</p>",
-    unsafe_allow_html=True,
-)
-#add footer with disclaimer about OCR limitations and link to Hornfels website
+render_footer(HORNFELS_URL)
+# Add footer with disclaimer about OCR limitations and link to Hornfels website.
 
 st.image("https://img.shields.io/badge/License-MIT-yellow.svg", width=64, link="https://opensource.org/licenses/MIT")
 st.markdown(

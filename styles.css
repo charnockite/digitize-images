@@ -1,0 +1,88 @@
+/* Brand colour tokens */
+:root {
+    --color-dark-green: #1B3C33;
+    --color-accent-gold: #C68D40;
+    --color-white: #FFFFFF;
+    --color-sidebar-hover: rgba(255, 255, 255, 0.14);
+    --color-sidebar-outline: rgba(255, 255, 255, 0.35);
+}
+
+/* Header / top bar */
+[data-testid="stHeader"] {
+    background-color: var(--color-dark-green);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: var(--color-dark-green);
+}
+[data-testid="stSidebar"] * {
+    color: var(--color-white) !important;
+}
+
+/* Sidebar collapse/expand chevron should always stand out */
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="collapsedControl"] button,
+button[title="Collapse sidebar"],
+button[title="Expand sidebar"] {
+    color: var(--color-white) !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="collapsedControl"] button:hover,
+button[title="Collapse sidebar"]:hover,
+button[title="Expand sidebar"]:hover,
+[data-testid="stSidebarCollapseButton"] button:focus-visible,
+[data-testid="collapsedControl"] button:focus-visible,
+button[title="Collapse sidebar"]:focus-visible,
+button[title="Expand sidebar"]:focus-visible {
+    background-color: var(--color-sidebar-hover) !important;
+    border-radius: 0.4rem;
+    outline: 2px solid var(--color-sidebar-outline) !important;
+    outline-offset: 1px;
+}
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="collapsedControl"] svg,
+button[title="Collapse sidebar"] svg,
+button[title="Expand sidebar"] svg {
+    fill: var(--color-white) !important;
+    stroke: var(--color-white) !important;
+    color: var(--color-white) !important;
+}
+
+/* Main title */
+h1 {
+    color: var(--color-dark-green);
+    font-weight: 700;
+}
+
+/* Divider line accent */
+.hornfels-divider {
+    border: none;
+    border-top: 3px solid var(--color-accent-gold);
+    margin: 0.25rem 0 1.25rem 0;
+}
+
+/* File uploader — white box needs dark text for contrast */
+[data-testid="stFileUploader"] * {
+    color: var(--color-dark-green) !important;
+}
+
+/* Regex text input in sidebar should use the same dark green */
+[data-testid="stTextInput"] input {
+    color: var(--color-dark-green) !important;
+    -webkit-text-fill-color: var(--color-dark-green) !important;
+}
+[data-testid="stTextInput"] input::placeholder {
+    color: var(--color-dark-green) !important;
+    opacity: 0.75;
+}
+
+/* Footer / branding link */
+.hornfels-link a {
+    color: var(--color-accent-gold);
+    font-weight: 600;
+    text-decoration: none;
+}
+.hornfels-link a:hover {
+    text-decoration: underline;
+}
